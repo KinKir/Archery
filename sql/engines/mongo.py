@@ -16,9 +16,10 @@ logger = logging.getLogger('default')
 
 class MongoEngine(EngineBase):
     def get_connection(self, db_name=None):
-        conn = pymongo.MongoClient(self.host, self.port, connect=True, connectTimeoutMS=10000)
+        database = self.instance.database or 'admin'
+        conn = pymongo.MongoClient(self.host, self.port, authSource=database, connect=True, connectTimeoutMS=10000)
         if self.user and self.password:
-            conn.admin.authenticate(self.user, self.password)
+            conn[database].authenticate(self.user, self.password, database)
         return conn
 
     @property
@@ -30,9 +31,19 @@ class MongoEngine(EngineBase):
         return 'Mongo engine'
 
     def get_all_databases(self):
-        result = ResultSet(full_sql='get databases')
+        result = ResultSet()
         conn = self.get_connection()
-        result.rows = conn.list_database_names()
+        if self.instance.database == 'admin':
+            result.rows = conn.list_database_names()
+        else:
+            result.rows = [self.instance.database]
+        return result
+
+    def get_all_tables(self, db_name, **kwargs):
+        result = ResultSet()
+        conn = self.get_connection()
+        db = conn[db_name]
+        result.rows = db.list_collection_names()
         return result
 
     def query_check(self, db_name=None, sql=''):
@@ -49,19 +60,13 @@ class MongoEngine(EngineBase):
                             """如 : 'test.find({"id":{"$gt":1.0}})'"""
         return result
 
-    def get_all_tables(self, db_name):
-        result = ResultSet(full_sql='get tables')
-        conn = self.get_connection()
-        db = conn[db_name]
-        result.rows = db.list_collection_names()
-        return result
-
-    def query(self, db_name=None, sql='', limit_num=0, close_conn=True):
+    def query(self, db_name=None, sql='', limit_num=0, close_conn=True, **kwargs):
+        collect = kwargs.get('tb_name')
         result_set = ResultSet(full_sql=sql)
         try:
             conn = self.get_connection()
             db = conn[db_name]
-            collect = db[sql.split('.')[0]]
+            collect = db[collect]
             match = re.compile(r'[(](.*)[)]', re.S)
             sql = re.findall(match, sql)[0]
             if sql != '':

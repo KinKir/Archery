@@ -60,3 +60,8 @@ CREATE TABLE `archive_log` (
   KEY `idx_archive_id` (`archive_id`),
   CONSTRAINT `fk_archive_config_id` FOREIGN KEY (`archive_id`) REFERENCES `archive_config` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT '归档日志表';
+
+
+-- 实例配置表新增默认数据库字段
+ALTER TABLE sql_instance ADD `database` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '数据库';
+
